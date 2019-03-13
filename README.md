@@ -6,7 +6,7 @@ Implemented on Single Reference Neural Color Transfer
 And changed WLS filter to Deep Guided Filter.
 
 # Results
-Input Imag
+Input Image
 ![Input](https://user-images.githubusercontent.com/15609545/54282220-e0ea0480-45de-11e9-810f-8d8467c0b60e.jpg)
 
 Style image
