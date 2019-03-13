@@ -8,6 +8,7 @@ And changed WLS filter to Deep Guided Filter.
 # Results
 Our Input Image is 
 ![Input](https://user-images.githubusercontent.com/15609545/54282220-e0ea0480-45de-11e9-810f-8d8467c0b60e.jpg)
+
 and the style image is
 ![Style](https://user-images.githubusercontent.com/15609545/54282236-e8111280-45de-11e9-862c-a8c90724de85.jpg)
 
