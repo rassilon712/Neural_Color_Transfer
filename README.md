@@ -1,9 +1,14 @@
 # Neural_Color_Transfer_PyTorch_Implementation
-We are trying to implement neural color transfer by Mingming He et al in PyTorch.
+We are trying to implement [Neural Color Transfer between Images][1] by Mingming He et al in PyTorch.
+They revised their paper to version 2 which is [Progressive Color Transfer with Dense Semantic Correspondences][2].
+
+[1]:https://arxiv.org/abs/1710.00756v1
+[2]:https://arxiv.org/abs/1710.00756v2
 
 # Process
 Implemented on Single Reference Neural Color Transfer
-And changed WLS filter to Deep Guided Filter.
+And changed WLS-based filter to [Deep Guided Filter].
+[3]: https://github.com/wuhuikai/DeepGuidedFilter
 
 # Results
 Input Image
