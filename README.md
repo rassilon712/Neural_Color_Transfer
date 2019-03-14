@@ -7,7 +7,7 @@ They revised their paper to version 2 which is [Progressive Color Transfer with 
 
 # Process
 Implemented on Single Reference Neural Color Transfer
-And changed WLS-based filter to [Deep Guided Filter].
+And changed WLS-based filter to [Deep Guided Filter][3].
 [3]: https://github.com/wuhuikai/DeepGuidedFilter
 
 # Results
