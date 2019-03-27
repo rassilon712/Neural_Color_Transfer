@@ -144,13 +144,3 @@ def bds_vote(ref, nnf_sr, nnf_rs, patch_size=3):
     weight[weight == 0] = 1
     guide /= weight
     return guide
-
-from guided_filter_pytorch.guided_filter import FastGuidedFilter
-# labOrigS = torch.from_numpy(color.rgb2lab(np.array(origS)).transpose(RIGHT_SHIFT)).float()
-rgbOrigS = transforms.ToTensor()(origS)
-a_upsampled = FastGuidedFilter(1, eps=1e-08)(lct.source.permute(RIGHT_SHIFT).unsqueeze(0).cpu(),
-                                             lct.paramA.permute(RIGHT_SHIFT).unsqueeze(0).cpu(),
-                                             rgbOrigS.unsqueeze(0)).squeeze()
-b_upsampled = FastGuidedFilter(1, eps=1e-08)(lct.source.permute(RIGHT_SHIFT).unsqueeze(0).cpu(),
-                                             lct.paramB.permute(RIGHT_SHIFT).unsqueeze(0).cpu(),
-                                             rgbOrigS.unsqueeze(0)).squeeze()
