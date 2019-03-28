@@ -3,14 +3,12 @@ import os
 
 import numpy as np
 import torch
-from torch import nn, optim
 import torchvision.models
 from torchvision import transforms, utils
 from guided_filter_pytorch.guided_filter import FastGuidedFilter
 from PIL import Image
 from skimage import color
 from sklearn.cluster import KMeans
-from sklearn.neighbors import NearestNeighbors
 
 from utils import *
 
@@ -25,9 +23,19 @@ def image_loader(img_path):
     transform = transforms.Compose([
         transforms.ToTensor(),
         transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                             std=[0.229, 0.224, 0.225]),
+                             std=[0.229, 0.224, 0.225])
     ])
     img_tensor = transform(img).unsqueeze(0)
+
+    return img_tensor
+
+
+def resize_img(img, size):
+    transform = transforms.Compose([
+        transforms.Resize(size),
+        transforms.ToTensor()
+    ])
+    img_tensor = transform(img)
 
     return img_tensor
 
@@ -46,6 +54,9 @@ def normalize(feature):
 def main(config):
     device = torch.device(('cuda:' + str(config.gpu)) if config.cuda else 'cpu')
 
+    origS = Image.open(config.source).convert("RGB")
+    origR = Image.open(config.reference).convert("RGB")
+
     imgS = image_loader(config.source).to(device)
     imgR = image_loader(config.reference).to(device)
 
@@ -59,6 +70,25 @@ def main(config):
     feat5R = get_feature(vgg19, imgR, FEATURE_IDS[4])
     feat5S_norm = normalize(feat5S)
     feat5R_norm = normalize(feat5R)
+
+    map5SR = PatchMatch(feat5S_norm, feat5R_norm)  # S -> R
+    map5RS = PatchMatch(feat5R_norm, feat5S_norm)  # R -> S
+    map5SR.solve()
+    print()
+    map5RS.solve()
+
+    imgS_resized = resize_img(origS, feat5S.shape[:2])
+    imgR_resized = resize_img(origR, feat5R.shape[:2])
+
+    imgG = bds_vote(imgR_resized, map5SR.nnf, map5RS.nnf)
+    feat5G = bds_vote(feat5R.transpose(RIGHT_SHIFT), map5SR.nnf, map5RS.nnf).transpose(LEFT_SHIFT)
+    feat5G_norm = normalize(feat5G)
+
+    kmeans = KMeans(n_clusters=5, n_jobs=1).fit(feat5S.reshape(-1, feat5S.shape[2]))
+    kmeans_labels = kmeans.labels_.reshape(feat5S.shape[:2])
+
+    labS = color.rgb2lab(imgS_resized.numpy().transpose(LEFT_SHIFT))
+    labG = color.rgb2lab(imgG.transpose(LEFT_SHIFT))
 
     # FastGuidedFilter
     # labOrigS = torch.from_numpy(color.rgb2lab(np.array(origS)).transpose(RIGHT_SHIFT)).float()
