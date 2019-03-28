@@ -1,33 +1,48 @@
-from PIL import Image
-from skimage import color
-from sklearn.neighbors import NearestNeighbors
-from torch.autograd import Variable
-from torch import nn, optim
-from torchvision import models, transforms, utils
-from guided_filter_pytorch.guided_filter import FastGuidedFilter
-import numpy as np
 import argparse
 import os
 
-import utils
+import numpy as np
+import torch
+from torch import nn, optim
+import torchvision.models
+from torchvision import transforms, utils
+from guided_filter_pytorch.guided_filter import FastGuidedFilter
+from PIL import Image
+from skimage import color
+from sklearn.cluster import KMeans
+from sklearn.neighbors import NearestNeighbors
+
+from utils import *
 
 
-parser = argparse.ArgumentParser(description="Neural Color Transfer between Images PyTorch")
-parser.add_argument('--source_image',type = str, default='image/3_Source1', help= "Source Image that has Content")
-parser.add_arguement('--reference_image', type=str, default='image/3_Reference', help= "Reference Image to Get Style")
-parser.add_arguement('--results_path',type=str, default='/results')
-parser.add_arguement('--processing_path', type=str, default='/processimage')
-parser.add_arguement('--gpu', type=int, default=0)
-parser.add_argument("--cuda", dest='feature', action='store_true')
-parser.set_defaults(cuda=False)
-
-## need more arguements?
+FEATURE_IDS = [1, 6, 11, 20, 29]
+LEFT_SHIFT = (1, 2, 0)
+RIGHT_SHIFT = (2, 0, 1)
 
 
-def main():
-    args = parser.parse_args()
-    torch.cuda.set_device(args.gpu)
-    device = torch.device('cuda:{}'.format(args.gpu))
+def image_loader(img_path):
+    img = Image.open(img_path).convert("RGB")
+    transform = transforms.Compose([
+        transforms.ToTensor(),
+        transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                             std=[0.229, 0.224, 0.225]),
+    ])
+    img_tensor = transform(img).unsqueeze(0)
+
+    return img_tensor
+
+
+def main(config):
+    device = torch.device(('cuda:' + str(config.gpu)) if config.cuda else 'cpu')
+
+    imgS = image_loader(config.source).to(device)
+    imgR = image_loader(config.reference).to(device)
+
+    imgS_np = imgS.squeeze().numpy().transpose(LEFT_SHIFT)
+    imgR_np = imgR.squeeze().numpy().transpose(LEFT_SHIFT)
+
+    vgg19 = torchvision.models.vgg19(pretrained=True)
+    vgg19.to(device)
 
     # FastGuidedFilter
     # labOrigS = torch.from_numpy(color.rgb2lab(np.array(origS)).transpose(RIGHT_SHIFT)).float()
@@ -39,3 +54,19 @@ def main():
                                                  lct.paramB.permute(RIGHT_SHIFT).unsqueeze(0).cpu(),
                                                  rgbOrigS.unsqueeze(0)).squeeze()
 
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description="Neural Color Transfer between Images PyTorch")
+
+    parser.add_argument('--source', type=str, default='./image/3_Source1', help="Source Image that has Content")
+    parser.add_argument('--reference', type=str, default='./image/3_Reference', help="Reference Image to Get Style")
+    parser.add_argument('--results_dir', type=str, default='./results')
+    parser.add_argument('--processing_dir', type=str, default='./processImage')
+    parser.add_argument('--cuda', dest='feature', action='store_true')
+    parser.add_argument('--gpu', type=int, default=0)
+    parser.set_defaults(cuda=False)
+    # need more arguments?
+
+    args = parser.parse_args()
+    print(args)
+    main(args)

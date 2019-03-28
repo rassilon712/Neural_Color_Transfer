@@ -1,6 +1,7 @@
 import numpy as np
 import torch
 
+
 class PatchMatch:
     def __init__(self, a, b, patch_size=3):
         self.a = a
