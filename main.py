@@ -32,6 +32,13 @@ def image_loader(img_path):
     return img_tensor
 
 
+def get_feature(vgg19, img_tensor, feature_id):
+    feature_tensor = vgg19.features[:feature_id](img_tensor)
+    feature = feature_tensor.data.squeeze().cpu().numpy().transpose(LEFT_SHIFT)
+
+    return feature
+
+
 def main(config):
     device = torch.device(('cuda:' + str(config.gpu)) if config.cuda else 'cpu')
 
@@ -43,6 +50,9 @@ def main(config):
 
     vgg19 = torchvision.models.vgg19(pretrained=True)
     vgg19.to(device)
+
+    feat5S = get_feature(vgg19, imgS, FEATURE_IDS[4])
+    feat5R = get_feature(vgg19, imgR, FEATURE_IDS[4])
 
     # FastGuidedFilter
     # labOrigS = torch.from_numpy(color.rgb2lab(np.array(origS)).transpose(RIGHT_SHIFT)).float()
