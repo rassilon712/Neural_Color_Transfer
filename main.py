@@ -39,6 +39,10 @@ def get_feature(vgg19, img_tensor, feature_id):
     return feature
 
 
+def normalize(feature):
+    return feature / np.linalg.norm(feature, ord=2, axis=2, keepdims=True)
+
+
 def main(config):
     device = torch.device(('cuda:' + str(config.gpu)) if config.cuda else 'cpu')
 
@@ -53,6 +57,8 @@ def main(config):
 
     feat5S = get_feature(vgg19, imgS, FEATURE_IDS[4])
     feat5R = get_feature(vgg19, imgR, FEATURE_IDS[4])
+    feat5S_norm = normalize(feat5S)
+    feat5R_norm = normalize(feat5R)
 
     # FastGuidedFilter
     # labOrigS = torch.from_numpy(color.rgb2lab(np.array(origS)).transpose(RIGHT_SHIFT)).float()
