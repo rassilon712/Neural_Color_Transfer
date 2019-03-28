@@ -10,6 +10,7 @@ from PIL import Image
 from skimage import color
 from sklearn.cluster import KMeans
 
+from models import LocalColorTransfer
 from utils import *
 
 
@@ -52,6 +53,11 @@ def normalize(feature):
 
 
 def main(config):
+    if not os.path.exists(config.result_dir):
+        os.makedirs(config.result_dir)
+    if not os.path.exists(config.processing_dir):
+        os.makedirs(config.processing_dir)
+
     device = torch.device(('cuda:' + str(config.gpu)) if config.cuda else 'cpu')
 
     origS = Image.open(config.source).convert("RGB")
@@ -90,6 +96,11 @@ def main(config):
     labS = color.rgb2lab(imgS_resized.numpy().transpose(LEFT_SHIFT))
     labG = color.rgb2lab(imgG.transpose(LEFT_SHIFT))
 
+    lct = LocalColorTransfer(imgS_resized.numpy().transpose(LEFT_SHIFT), imgG.transpose(LEFT_SHIFT),
+                             feat5S_norm, feat5G_norm, kmeans_labels, device, kmeans_ratio=1)
+    save = torch.from_numpy(imgG).float()
+    utils.save_image(save, config.result_dir + 'img5G.png')
+
     # FastGuidedFilter
     # labOrigS = torch.from_numpy(color.rgb2lab(np.array(origS)).transpose(RIGHT_SHIFT)).float()
     rgbOrigS = transforms.ToTensor()(origS)
@@ -100,13 +111,23 @@ def main(config):
                                                  lct.paramB.permute(RIGHT_SHIFT).unsqueeze(0).cpu(),
                                                  rgbOrigS.unsqueeze(0)).squeeze()
 
+    img5S = a_upsampled * rgbOrigS + b_upsampled
+    img5S = img5S.data.numpy().transpose(LEFT_SHIFT).astype(np.float64)
+    # img5S = color.lab2rgb(img5S.data.numpy().transpose(LEFT_SHIFT).astype(np.float64))
+    # imshow(img5S)
+
+    img5S = torch.from_numpy(img5S.transpose(RIGHT_SHIFT)).float()
+    utils.save_image(img5S, 'results/img5S.png')
+    transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])(img5S)
+    img5S = img5S.unsqueeze(0)
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Neural Color Transfer between Images PyTorch")
 
     parser.add_argument('--source', type=str, default='./image/3_Source1', help="Source Image that has Content")
     parser.add_argument('--reference', type=str, default='./image/3_Reference', help="Reference Image to Get Style")
-    parser.add_argument('--results_dir', type=str, default='./results')
+    parser.add_argument('--result_dir', type=str, default='./results')
     parser.add_argument('--processing_dir', type=str, default='./processImage')
     parser.add_argument('--cuda', dest='feature', action='store_true')
     parser.add_argument('--gpu', type=int, default=0)
