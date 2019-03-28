@@ -60,6 +60,9 @@ def main(config):
 
     device = torch.device(('cuda:' + str(config.gpu)) if config.cuda else 'cpu')
 
+    vgg19 = torchvision.models.vgg19(pretrained=True)
+    vgg19.to(device)
+
     origS = Image.open(config.source).convert("RGB")
     origR = Image.open(config.reference).convert("RGB")
 
@@ -68,9 +71,6 @@ def main(config):
 
     imgS_np = imgS.squeeze().numpy().transpose(LEFT_SHIFT)
     imgR_np = imgR.squeeze().numpy().transpose(LEFT_SHIFT)
-
-    vgg19 = torchvision.models.vgg19(pretrained=True)
-    vgg19.to(device)
 
     feat5S = get_feature(vgg19, imgS, FEATURE_IDS[4])
     feat5R = get_feature(vgg19, imgR, FEATURE_IDS[4])
@@ -90,6 +90,7 @@ def main(config):
     feat5G = bds_vote(feat5R.transpose(RIGHT_SHIFT), map5SR.nnf, map5RS.nnf).transpose(LEFT_SHIFT)
     feat5G_norm = normalize(feat5G)
 
+    # Bookmark
     kmeans = KMeans(n_clusters=5, n_jobs=1).fit(feat5S.reshape(-1, feat5S.shape[2]))
     kmeans_labels = kmeans.labels_.reshape(feat5S.shape[:2])
 
@@ -117,9 +118,54 @@ def main(config):
     # imshow(img5S)
 
     img5S = torch.from_numpy(img5S.transpose(RIGHT_SHIFT)).float()
-    utils.save_image(img5S, 'results/img5S.png')
+    utils.save_image(img5S, config.result_dir + 'img5S.png')
     transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])(img5S)
     img5S = img5S.unsqueeze(0)
+
+    # ------------------------------------------------------------------------------------------------------------------
+
+    feat4S = get_feature(vgg19, img5S, FEATURE_IDS[3])
+    feat4R = get_feature(vgg19, imgR, FEATURE_IDS[3])
+    feat4S_norm = normalize(feat4S)
+    feat4R_norm = normalize(feat4R)
+
+    map4SR = PatchMatch(feat4S_norm, feat4R_norm) #S -> R
+    map4RS = PatchMatch(feat4R_norm, feat4S_norm) #R -> S
+    map4SR.solve()
+    print()
+    map4RS.solve()
+
+    imgS_resized = resize_img(origS, feat4S.shape[:2])
+    imgR_resized = resize_img(origR, feat4R.shape[:2])
+
+    imgG = bds_vote(imgR_resized, map4SR.nnf, map4RS.nnf)
+    feat4G = bds_vote(feat4R.transpose(RIGHT_SHIFT), map4SR.nnf, map4RS.nnf).transpose(LEFT_SHIFT)
+    feat4G_norm = normalize(feat4G)
+
+    labS = color.rgb2lab(imgS_resized.numpy().transpose(LEFT_SHIFT))
+    labG = color.rgb2lab(imgG.transpose(LEFT_SHIFT))
+
+    lct = LocalColorTransfer(imgS_resized.numpy().transpose(LEFT_SHIFT), imgG.transpose(LEFT_SHIFT),
+                             feat4S_norm, feat4G_norm, kmeans_labels, device, kmeans_ratio=2)
+    save = torch.from_numpy(imgG).float()
+    utils.save_image(save, config.result_dir + 'img4G.png')
+    lct.train()
+
+    a_upsampled = FastGuidedFilter(1, eps=1e-08)(lct.source.permute(RIGHT_SHIFT).unsqueeze(0).cpu(),
+                                                 lct.paramA.permute(RIGHT_SHIFT).unsqueeze(0).cpu(),
+                                                 rgbOrigS.unsqueeze(0)).squeeze()
+    b_upsampled = FastGuidedFilter(1, eps=1e-08)(lct.source.permute(RIGHT_SHIFT).unsqueeze(0).cpu(),
+                                                 lct.paramB.permute(RIGHT_SHIFT).unsqueeze(0).cpu(),
+                                                 rgbOrigS.unsqueeze(0)).squeeze()
+
+    img4S = a_upsampled * rgbOrigS + b_upsampled
+    img4S = img4S.data.numpy().transpose(LEFT_SHIFT)
+    # imshow(img4S)
+
+    img4S = torch.from_numpy(img4S.transpose(RIGHT_SHIFT)).float()
+    utils.save_image(img4S, config.result_dir + 'img4S.png')
+    transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])(img4S)
+    img4S = img4S.unsqueeze(0)
 
 
 if __name__ == '__main__':
